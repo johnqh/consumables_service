@@ -1,13 +1,15 @@
 import { eq, desc, sql } from "drizzle-orm";
 import type { ConsumablesSchemaResult } from "../schema";
 import type {
-  BalanceResponse,
-  PurchaseRequest,
-  UseResponse,
+  ConsumableBalanceResponse,
+  ConsumablePurchaseRequest,
+  ConsumableSource,
+  ConsumableUseResponse,
+} from "@sudobility/types";
+import type {
   ConsumablePurchase,
   ConsumableUsage,
   ConsumablesConfig,
-  ConsumableSource,
 } from "../types";
 
 export class ConsumablesHelper {
@@ -26,7 +28,7 @@ export class ConsumablesHelper {
   }
 
   /** Get or create balance record. Auto-grants free credits on first access. */
-  async getBalance(userId: string): Promise<BalanceResponse> {
+  async getBalance(userId: string): Promise<ConsumableBalanceResponse> {
     const { consumableBalances } = this.tables;
     const existing = await this.db
       .select()
@@ -63,8 +65,8 @@ export class ConsumablesHelper {
   /** Record a purchase. Atomically adds credits to balance. */
   async recordPurchase(
     userId: string,
-    request: PurchaseRequest,
-  ): Promise<BalanceResponse> {
+    request: ConsumablePurchaseRequest,
+  ): Promise<ConsumableBalanceResponse> {
     const { consumableBalances, consumablePurchases } = this.tables;
 
     // Ensure balance record exists (idempotent)
@@ -106,7 +108,7 @@ export class ConsumablesHelper {
   async recordUsage(
     userId: string,
     filename?: string,
-  ): Promise<UseResponse> {
+  ): Promise<ConsumableUseResponse> {
     const { consumableBalances, consumableUsages } = this.tables;
 
     // Atomically decrement (with guard against going negative)

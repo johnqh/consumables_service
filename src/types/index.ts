@@ -1,22 +1,3 @@
-// Shared API contract types from @sudobility/types
-export type {
-  ConsumableSource,
-  ConsumableBalanceResponse,
-  ConsumablePurchaseRequest,
-  ConsumableUseRequest,
-  ConsumableUseResponse,
-  ConsumablePurchaseRecord,
-  ConsumableUsageRecord,
-} from "@sudobility/types";
-
-// Backward-compat aliases for existing consumers
-export type {
-  ConsumableBalanceResponse as BalanceResponse,
-  ConsumablePurchaseRequest as PurchaseRequest,
-  ConsumableUseRequest as UseRequest,
-  ConsumableUseResponse as UseResponse,
-} from "@sudobility/types";
-
 // === DB row types (service-only) ===
 
 export interface ConsumableBalance {
