@@ -1,8 +1,23 @@
-// === Source types ===
+// Shared API contract types from @sudobility/types
+export type {
+  ConsumableSource,
+  ConsumableBalanceResponse,
+  ConsumablePurchaseRequest,
+  ConsumableUseRequest,
+  ConsumableUseResponse,
+  ConsumablePurchaseRecord,
+  ConsumableUsageRecord,
+} from "@sudobility/types";
 
-export type ConsumableSource = "web" | "apple" | "google" | "free";
+// Backward-compat aliases for existing consumers
+export type {
+  ConsumableBalanceResponse as BalanceResponse,
+  ConsumablePurchaseRequest as PurchaseRequest,
+  ConsumableUseRequest as UseRequest,
+  ConsumableUseResponse as UseResponse,
+} from "@sudobility/types";
 
-// === DB row types ===
+// === DB row types (service-only) ===
 
 export interface ConsumableBalance {
   user_id: string;
@@ -31,32 +46,7 @@ export interface ConsumableUsage {
   created_at: Date;
 }
 
-// === API request/response types ===
-
-export interface BalanceResponse {
-  balance: number;
-  initial_credits: number;
-}
-
-export interface PurchaseRequest {
-  credits: number;
-  source: ConsumableSource;
-  transaction_ref_id?: string;
-  product_id?: string;
-  price_cents?: number;
-  currency?: string;
-}
-
-export interface UseRequest {
-  filename?: string;
-}
-
-export interface UseResponse {
-  balance: number;
-  success: boolean;
-}
-
-// === Webhook types ===
+// === Webhook types (service-only) ===
 
 export interface RevenueCatWebhookEvent {
   api_version: string;
@@ -72,7 +62,7 @@ export interface RevenueCatWebhookEvent {
   };
 }
 
-// === Config ===
+// === Config (service-only) ===
 
 export interface ConsumablesConfig {
   initialFreeCredits: number;

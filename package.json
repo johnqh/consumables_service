@@ -39,9 +39,11 @@
   "author": "Sudobility",
   "license": "BUSL-1.1",
   "peerDependencies": {
+    "@sudobility/types": ">=1.9.50",
     "drizzle-orm": ">=0.44.0"
   },
   "devDependencies": {
+    "@sudobility/types": "file:../../0xmail/types",
     "drizzle-orm": "^0.45.1",
     "vitest": "^4.0.4",
     "@types/bun": "latest",
