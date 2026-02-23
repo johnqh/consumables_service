@@ -40,6 +40,9 @@ const config: ConsumablesConfig = {
  * thenable — they return the chainable AND can be awaited.
  *
  * Terminal resolution queues allow tests to enqueue return values.
+ *
+ * The `transaction` method passes the same chainable as `tx` to its callback,
+ * so all queued responses are shared between db and tx.
  */
 function createMockDb() {
   // Resolution queues for terminal methods
@@ -79,6 +82,11 @@ function createMockDb() {
   chainable.returning = makeTerminal(returningQueue);
   chainable.offset = makeTerminal(offsetQueue);
   chainable.values = makeTerminal(valuesQueue);
+
+  // transaction() passes the same chainable as tx to the callback
+  chainable.transaction = vi.fn().mockImplementation(async (fn: any) => {
+    return fn(chainable);
+  });
 
   // Helper to enqueue responses
   chainable._enqueueWhere = (val: any) => whereQueue.push(val);
@@ -147,16 +155,17 @@ describe("ConsumablesHelper", () => {
   });
 
   describe("recordPurchase", () => {
-    it("should insert purchase and increment balance atomically", async () => {
-      // getBalance → select().from().where() — existing user
+    it("should insert purchase and increment balance within a transaction", async () => {
+      // Inside transaction:
+      // tx.select().from().where() — existing user
       db._enqueueWhere([
         { user_id: "user123", balance: 3, initial_credits: 3 },
       ]);
-      // insert purchase → values()
+      // tx.insert purchase → values()
       db._enqueueValues(undefined);
-      // update balance → set().where()
+      // tx.update balance → set().where()
       db._enqueueWhere(undefined);
-      // final select → where()
+      // tx.select updated → where()
       db._enqueueWhere([
         { user_id: "user123", balance: 28, initial_credits: 3 },
       ]);
@@ -174,8 +183,99 @@ describe("ConsumablesHelper", () => {
         balance: 28,
         initial_credits: 3,
       });
+      expect(db.transaction).toHaveBeenCalled();
       expect(db.insert).toHaveBeenCalled();
       expect(db.update).toHaveBeenCalled();
+    });
+
+    it("should create balance row inside transaction when user is new", async () => {
+      // Inside transaction:
+      // tx.select().from().where() — user not found
+      db._enqueueWhere([]);
+      // tx.insert balance → values()
+      db._enqueueValues(undefined);
+      // tx.insert free credits purchase → values()
+      db._enqueueValues(undefined);
+      // tx.insert purchase → values()
+      db._enqueueValues(undefined);
+      // tx.update balance → set().where()
+      db._enqueueWhere(undefined);
+      // tx.select updated → where()
+      db._enqueueWhere([
+        { user_id: "newuser", balance: 28, initial_credits: 3 },
+      ]);
+
+      const result = await helper.recordPurchase("newuser", {
+        credits: 25,
+        source: "web",
+      });
+
+      expect(result).toEqual({
+        balance: 28,
+        initial_credits: 3,
+      });
+      expect(db.transaction).toHaveBeenCalled();
+    });
+
+    it("should throw on non-positive credits", async () => {
+      await expect(
+        helper.recordPurchase("user123", {
+          credits: 0,
+          source: "web",
+        }),
+      ).rejects.toThrow("credits must be a positive integer");
+
+      await expect(
+        helper.recordPurchase("user123", {
+          credits: -5,
+          source: "web",
+        }),
+      ).rejects.toThrow("credits must be a positive integer");
+    });
+
+    it("should throw on non-integer credits", async () => {
+      await expect(
+        helper.recordPurchase("user123", {
+          credits: 2.5,
+          source: "web",
+        }),
+      ).rejects.toThrow("credits must be a positive integer");
+    });
+
+    it("should throw on invalid source", async () => {
+      await expect(
+        helper.recordPurchase("user123", {
+          credits: 10,
+          source: "invalid" as any,
+        }),
+      ).rejects.toThrow("source must be one of: web, apple, google, free");
+    });
+
+    it("should accept all valid sources", async () => {
+      for (const source of ["web", "apple", "google", "free"] as const) {
+        const freshDb = createMockDb();
+        const freshHelper = new ConsumablesHelper(freshDb, mockTables, config);
+
+        // tx.select().from().where() — existing user
+        freshDb._enqueueWhere([
+          { user_id: "user123", balance: 3, initial_credits: 3 },
+        ]);
+        // tx.insert purchase → values()
+        freshDb._enqueueValues(undefined);
+        // tx.update balance → set().where()
+        freshDb._enqueueWhere(undefined);
+        // tx.select updated → where()
+        freshDb._enqueueWhere([
+          { user_id: "user123", balance: 13, initial_credits: 3 },
+        ]);
+
+        const result = await freshHelper.recordPurchase("user123", {
+          credits: 10,
+          source,
+        });
+
+        expect(result.balance).toBe(13);
+      }
     });
   });
 
@@ -233,15 +333,16 @@ describe("ConsumablesHelper", () => {
     it("should process new transactions", async () => {
       // Check for existing — not found
       db._enqueueWhere([]);
-      // recordPurchase → getBalance → where (existing user)
+      // Inside transaction (recordPurchase):
+      // tx.select().from().where() — existing user
       db._enqueueWhere([
         { user_id: "user123", balance: 3, initial_credits: 3 },
       ]);
-      // recordPurchase → insert purchase → values
+      // tx.insert purchase → values
       db._enqueueValues(undefined);
-      // recordPurchase → update balance → where
+      // tx.update balance → where
       db._enqueueWhere(undefined);
-      // recordPurchase → final select → where
+      // tx.select updated → where
       db._enqueueWhere([
         { user_id: "user123", balance: 28, initial_credits: 3 },
       ]);

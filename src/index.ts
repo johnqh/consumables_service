@@ -16,6 +16,7 @@ export {
 // Helpers
 export {
   ConsumablesHelper,
+  type DrizzleDb,
   validateWebhookSignature,
   parseConsumablePurchaseEvent,
 } from "./helpers";

@@ -2,27 +2,31 @@
 
 ## Priority 1: Critical / High-Impact
 
-### 1.1 Add Transaction Wrapping for Purchase Recording
+### 1.1 Add Transaction Wrapping for Purchase Recording ✅ DONE
 **File**: `src/helpers/ConsumablesHelper.ts`
 **Issue**: `recordPurchase()` performs three separate database operations (getBalance, insert purchase, update balance) without a transaction. If any step fails partway through, data could be left in an inconsistent state (e.g., purchase recorded but balance not incremented).
 **Suggestion**: Wrap the multi-step operations in a database transaction using `db.transaction()`.
+**Resolution**: `recordPurchase()` now wraps all operations (balance check/create, purchase insert, balance increment, final select) in `this.db.transaction()`. The `tx` object is used for all operations within the transaction.
 
-### 1.2 Add Type Safety for `db` Parameter
+### 1.2 Add Type Safety for `db` Parameter ✅ DONE
 **File**: `src/helpers/ConsumablesHelper.ts`
 **Issue**: The `db` parameter is typed as `any`, which means no compile-time checks on query builder usage. This could lead to runtime errors if the API changes between drizzle-orm versions.
 **Suggestion**: Define a minimal interface for the `db` parameter (e.g., `{ select, insert, update, transaction }`) rather than using `any`. This provides basic type checking without full version coupling.
+**Resolution**: Added `DrizzleDb` interface with `select`, `insert`, `update`, and `transaction` methods. Constructor parameter changed from `db: any` to `db: DrizzleDb`. The interface is exported from the package for consumers to use.
 
-### 1.3 Add Timing-Safe Comparison for Webhook Signatures
+### 1.3 Add Timing-Safe Comparison for Webhook Signatures ✅ DONE
 **File**: `src/helpers/WebhookHelper.ts`
 **Issue**: `validateWebhookSignature()` uses `===` string comparison, which is vulnerable to timing attacks. An attacker could use response time differences to brute-force the signature.
 **Suggestion**: Use Node.js `crypto.timingSafeEqual()` for constant-time comparison of the expected and actual signatures.
+**Resolution**: Replaced `signature === expected` with `crypto.timingSafeEqual()` using hex-decoded buffers. Added a length check before calling `timingSafeEqual` to handle mismatched lengths safely.
 
 ## Priority 2: Moderate / Quality
 
-### 2.1 Add Credits Validation in `recordPurchase`
+### 2.1 Add Credits Validation in `recordPurchase` ✅ DONE
 **File**: `src/helpers/ConsumablesHelper.ts`
 **Issue**: There is no validation that `request.credits` is a positive integer. Negative or zero credits would be silently accepted, potentially corrupting balances.
 **Suggestion**: Add input validation: `credits` must be a positive integer, `source` must be a known value.
+**Resolution**: Added validation at the start of `recordPurchase()`: `credits` must be a positive integer (`> 0` and `Number.isInteger`), and `source` must be one of `"web"`, `"apple"`, `"google"`, `"free"`. Throws descriptive errors on invalid input. Added tests for all validation cases.
 
 ### 2.2 Add Pagination Metadata to History Methods
 **File**: `src/helpers/ConsumablesHelper.ts`

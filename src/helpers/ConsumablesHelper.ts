@@ -18,18 +18,33 @@ import type {
   ConsumablesConfig,
 } from "../types";
 
+/** Valid ConsumableSource values for input validation. */
+const VALID_SOURCES: ConsumableSource[] = ["web", "apple", "google", "free"];
+
+/**
+ * Minimal typed interface for the Drizzle database instance.
+ * Keeps `any` return types to avoid drizzle-orm version coupling,
+ * while ensuring the db object has the expected shape.
+ */
+export interface DrizzleDb {
+  select: (...args: any[]) => any;
+  insert: (...args: any[]) => any;
+  update: (...args: any[]) => any;
+  transaction: <T>(fn: (tx: any) => Promise<T>) => Promise<T>;
+}
+
 /**
  * Core helper class for managing consumable credits.
  * Handles balance get-or-create, purchase recording with atomic increments,
  * usage recording with atomic decrements, and idempotent webhook processing.
  */
 export class ConsumablesHelper {
-  private db: any;
+  private db: DrizzleDb;
   private tables: ConsumablesSchemaResult;
   private config: ConsumablesConfig;
 
   constructor(
-    db: any,
+    db: DrizzleDb,
     tables: ConsumablesSchemaResult,
     config: ConsumablesConfig,
   ) {
@@ -81,49 +96,81 @@ export class ConsumablesHelper {
   /**
    * Records a purchase and atomically increments the user's credit balance.
    * Ensures the balance row exists via getBalance() before updating.
+   * Wrapped in a database transaction for consistency.
    * @param userId - The user's unique identifier.
    * @param request - Purchase details including credits, source, and optional metadata.
    * @returns The updated balance after the purchase.
+   * @throws Error if credits is not a positive integer or source is invalid.
    */
   async recordPurchase(
     userId: string,
     request: ConsumablePurchaseRequest,
   ): Promise<ConsumableBalanceResponse> {
+    // Validate inputs
+    if (!Number.isInteger(request.credits) || request.credits <= 0) {
+      throw new Error("credits must be a positive integer");
+    }
+    if (!VALID_SOURCES.includes(request.source)) {
+      throw new Error("source must be one of: web, apple, google, free");
+    }
+
     const { consumableBalances, consumablePurchases } = this.tables;
 
-    // Ensure balance record exists (idempotent)
-    await this.getBalance(userId);
+    return this.db.transaction(async (tx: any) => {
+      // Ensure balance record exists (idempotent) — uses tx for reads/writes
+      const existing = await tx
+        .select()
+        .from(consumableBalances)
+        .where(eq(consumableBalances.user_id, userId));
 
-    // Insert purchase record
-    await this.db.insert(consumablePurchases).values({
-      user_id: userId,
-      credits: request.credits,
-      source: request.source,
-      transaction_ref_id: request.transaction_ref_id ?? null,
-      product_id: request.product_id ?? null,
-      price_cents: request.price_cents ?? null,
-      currency: request.currency ?? null,
+      if (existing.length === 0) {
+        const freeCredits = this.config.initialFreeCredits;
+        await tx.insert(consumableBalances).values({
+          user_id: userId,
+          balance: freeCredits,
+          initial_credits: freeCredits,
+        });
+
+        if (freeCredits > 0) {
+          await tx.insert(consumablePurchases).values({
+            user_id: userId,
+            credits: freeCredits,
+            source: "free" as ConsumableSource,
+          });
+        }
+      }
+
+      // Insert purchase record
+      await tx.insert(consumablePurchases).values({
+        user_id: userId,
+        credits: request.credits,
+        source: request.source,
+        transaction_ref_id: request.transaction_ref_id ?? null,
+        product_id: request.product_id ?? null,
+        price_cents: request.price_cents ?? null,
+        currency: request.currency ?? null,
+      });
+
+      // Atomically increment balance
+      await tx
+        .update(consumableBalances)
+        .set({
+          balance: sql`${consumableBalances.balance} + ${request.credits}`,
+          updated_at: new Date(),
+        })
+        .where(eq(consumableBalances.user_id, userId));
+
+      // Return updated balance
+      const updated = await tx
+        .select()
+        .from(consumableBalances)
+        .where(eq(consumableBalances.user_id, userId));
+
+      return {
+        balance: updated[0].balance,
+        initial_credits: updated[0].initial_credits,
+      };
     });
-
-    // Atomically increment balance
-    await this.db
-      .update(consumableBalances)
-      .set({
-        balance: sql`${consumableBalances.balance} + ${request.credits}`,
-        updated_at: new Date(),
-      })
-      .where(eq(consumableBalances.user_id, userId));
-
-    // Return updated balance
-    const updated = await this.db
-      .select()
-      .from(consumableBalances)
-      .where(eq(consumableBalances.user_id, userId));
-
-    return {
-      balance: updated[0].balance,
-      initial_credits: updated[0].initial_credits,
-    };
   }
 
   /**

@@ -4,11 +4,12 @@
  * from webhook payloads.
  */
 
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import type { RevenueCatWebhookEvent } from "../types";
 
 /**
  * Validates a RevenueCat webhook HMAC-SHA256 signature.
+ * Uses timing-safe comparison to prevent timing attacks.
  * @param rawBody - The raw request body string.
  * @param signature - The signature from the webhook header.
  * @param secret - The shared webhook secret.
@@ -22,7 +23,15 @@ export function validateWebhookSignature(
   const hmac = createHmac("sha256", secret);
   hmac.update(rawBody);
   const expected = hmac.digest("hex");
-  return signature === expected;
+
+  const expectedBuffer = Buffer.from(expected, "hex");
+  const signatureBuffer = Buffer.from(signature, "hex");
+
+  if (expectedBuffer.length !== signatureBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(expectedBuffer, signatureBuffer);
 }
 
 const STORE_TO_SOURCE: Record<string, string> = {
