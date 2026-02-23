@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Core business logic for consumable credit management.
+ * Provides balance CRUD, purchase recording, usage recording, and
+ * idempotent webhook processing with atomic database operations.
+ */
+
 import { eq, desc, sql } from "drizzle-orm";
 import type { ConsumablesSchemaResult } from "../schema";
 import type {
@@ -12,6 +18,11 @@ import type {
   ConsumablesConfig,
 } from "../types";
 
+/**
+ * Core helper class for managing consumable credits.
+ * Handles balance get-or-create, purchase recording with atomic increments,
+ * usage recording with atomic decrements, and idempotent webhook processing.
+ */
 export class ConsumablesHelper {
   private db: any;
   private tables: ConsumablesSchemaResult;
@@ -27,7 +38,12 @@ export class ConsumablesHelper {
     this.config = config;
   }
 
-  /** Get or create balance record. Auto-grants free credits on first access. */
+  /**
+   * Gets or creates a balance record for the given user.
+   * On first access, grants initialFreeCredits and records a "free" purchase audit entry.
+   * @param userId - The user's unique identifier.
+   * @returns The user's balance and initial credits.
+   */
   async getBalance(userId: string): Promise<ConsumableBalanceResponse> {
     const { consumableBalances } = this.tables;
     const existing = await this.db
@@ -62,7 +78,13 @@ export class ConsumablesHelper {
     return { balance: freeCredits, initial_credits: freeCredits };
   }
 
-  /** Record a purchase. Atomically adds credits to balance. */
+  /**
+   * Records a purchase and atomically increments the user's credit balance.
+   * Ensures the balance row exists via getBalance() before updating.
+   * @param userId - The user's unique identifier.
+   * @param request - Purchase details including credits, source, and optional metadata.
+   * @returns The updated balance after the purchase.
+   */
   async recordPurchase(
     userId: string,
     request: ConsumablePurchaseRequest,
@@ -104,7 +126,13 @@ export class ConsumablesHelper {
     };
   }
 
-  /** Record a usage. Atomically deducts 1 credit. Returns error if insufficient. */
+  /**
+   * Records a credit usage and atomically decrements the balance by 1.
+   * Uses a WHERE balance > 0 guard to prevent negative balances.
+   * @param userId - The user's unique identifier.
+   * @param filename - Optional filename associated with this usage.
+   * @returns The updated balance and whether the deduction was successful.
+   */
   async recordUsage(
     userId: string,
     filename?: string,
@@ -138,7 +166,13 @@ export class ConsumablesHelper {
     return { balance: result[0].balance, success: true };
   }
 
-  /** Get purchase history (most recent first). */
+  /**
+   * Fetches paginated purchase history for a user, ordered most recent first.
+   * @param userId - The user's unique identifier.
+   * @param limit - Maximum number of records to return. Defaults to 50.
+   * @param offset - Number of records to skip. Defaults to 0.
+   * @returns Array of purchase records.
+   */
   async getPurchaseHistory(
     userId: string,
     limit = 50,
@@ -154,7 +188,13 @@ export class ConsumablesHelper {
       .offset(offset);
   }
 
-  /** Get usage history (most recent first). */
+  /**
+   * Fetches paginated usage history for a user, ordered most recent first.
+   * @param userId - The user's unique identifier.
+   * @param limit - Maximum number of records to return. Defaults to 50.
+   * @param offset - Number of records to skip. Defaults to 0.
+   * @returns Array of usage records.
+   */
   async getUsageHistory(
     userId: string,
     limit = 50,
@@ -171,8 +211,17 @@ export class ConsumablesHelper {
   }
 
   /**
-   * Idempotent purchase recording from webhook.
-   * Checks if transaction_ref_id already exists to prevent duplicates.
+   * Records a purchase from a webhook event, with idempotency.
+   * Checks if the transaction_ref_id already exists to prevent duplicate processing.
+   * Safe to call multiple times with the same transactionId.
+   * @param userId - The user's unique identifier.
+   * @param transactionId - The unique transaction reference from RevenueCat.
+   * @param credits - Number of credits to grant.
+   * @param source - Purchase source ("web", "apple", or "google").
+   * @param productId - The RevenueCat product identifier.
+   * @param priceCents - The purchase price in cents.
+   * @param currency - The ISO currency code.
+   * @returns Whether the webhook was already processed and the current balance.
    */
   async recordPurchaseFromWebhook(
     userId: string,

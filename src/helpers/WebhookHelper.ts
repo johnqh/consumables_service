@@ -1,8 +1,18 @@
+/**
+ * @fileoverview Webhook validation and parsing utilities for RevenueCat events.
+ * Handles HMAC-SHA256 signature verification and extraction of purchase data
+ * from webhook payloads.
+ */
+
 import { createHmac } from "crypto";
 import type { RevenueCatWebhookEvent } from "../types";
 
 /**
- * Validates RevenueCat webhook HMAC signature.
+ * Validates a RevenueCat webhook HMAC-SHA256 signature.
+ * @param rawBody - The raw request body string.
+ * @param signature - The signature from the webhook header.
+ * @param secret - The shared webhook secret.
+ * @returns True if the signature is valid, false otherwise.
  */
 export function validateWebhookSignature(
   rawBody: string,
@@ -22,8 +32,11 @@ const STORE_TO_SOURCE: Record<string, string> = {
 };
 
 /**
- * Parse the webhook event and extract purchase data.
- * Returns null if the event type is not a consumable purchase.
+ * Parses a RevenueCat webhook event and extracts purchase data.
+ * Only processes NON_RENEWING_PURCHASE and INITIAL_PURCHASE event types.
+ * Maps store names to sources (STRIPE -> web, APP_STORE -> apple, PLAY_STORE -> google).
+ * @param event - The RevenueCat webhook event payload.
+ * @returns Extracted purchase data, or null if the event type is not a consumable purchase.
  */
 export function parseConsumablePurchaseEvent(
   event: RevenueCatWebhookEvent,

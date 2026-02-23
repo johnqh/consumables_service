@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Drizzle ORM schema factory for consumable credit tables.
+ * Creates balance, purchase, and usage tables within a consumer-provided PgSchema.
+ */
+
 import {
   varchar,
   timestamp,
@@ -6,11 +11,14 @@ import {
 } from "drizzle-orm/pg-core";
 
 /**
- * Create consumable tables within a given Drizzle PgSchema.
+ * Creates consumable credit tables within a given Drizzle PgSchema.
  * The consuming API passes its own schema so migrations stay in one place.
  *
  * Uses `any` for schema param to avoid drizzle-orm version coupling
  * between this library and the consuming API.
+ *
+ * @param schema - A Drizzle PgSchema instance from the consuming API.
+ * @returns An object containing the three table definitions: consumableBalances, consumablePurchases, consumableUsages.
  */
 export function createConsumablesSchema(schema: any) {
   const consumableBalances = schema.table("consumable_balances", {

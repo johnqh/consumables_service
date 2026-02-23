@@ -1,5 +1,11 @@
+/**
+ * @fileoverview Service-only type definitions for the consumables backend library.
+ * Defines database row types, RevenueCat webhook event structure, and service configuration.
+ */
+
 // === DB row types (service-only) ===
 
+/** Database row type for a user's consumable credit balance. */
 export interface ConsumableBalance {
   user_id: string;
   balance: number;
@@ -8,6 +14,7 @@ export interface ConsumableBalance {
   updated_at: Date;
 }
 
+/** Database row type for a consumable credit purchase record. */
 export interface ConsumablePurchase {
   id: number;
   user_id: string;
@@ -20,6 +27,7 @@ export interface ConsumablePurchase {
   created_at: Date;
 }
 
+/** Database row type for a consumable credit usage record. */
 export interface ConsumableUsage {
   id: number;
   user_id: string;
@@ -29,6 +37,7 @@ export interface ConsumableUsage {
 
 // === Webhook types (service-only) ===
 
+/** Structure of a RevenueCat webhook event payload. */
 export interface RevenueCatWebhookEvent {
   api_version: string;
   event: {
@@ -45,6 +54,7 @@ export interface RevenueCatWebhookEvent {
 
 // === Config (service-only) ===
 
+/** Configuration for the ConsumablesHelper service. */
 export interface ConsumablesConfig {
   initialFreeCredits: number;
   revenueCatWebhookSecret?: string;
