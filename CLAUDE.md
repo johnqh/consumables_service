@@ -135,14 +135,6 @@ Dependency direction: `svgr_api` --> `consumables_service` (library dep); `consu
 - **`db` is typed as `any`**: The ConsumablesHelper constructor accepts `db: any` to avoid version coupling with drizzle-orm. This sacrifices type safety for flexibility.
 - **`recordPurchase` calls `getBalance` first**: This ensures the balance row exists before incrementing. The extra query is intentional for the get-or-create pattern.
 
-## Testing
-
-- Run tests: `bun test` (uses vitest)
-- Tests use a **mock database** -- they do not connect to a real PostgreSQL instance.
-- `ConsumablesHelper.test.ts` tests core business logic: balance get-or-create, purchase recording, usage recording, pagination, and idempotent webhook processing.
-- `WebhookHelper.test.ts` tests HMAC signature validation and event parsing.
-- When adding new helper methods, add corresponding tests with both success and failure cases (e.g., insufficient balance, duplicate webhook).
-
 ## Publishing
 
 - Package: `@sudobility/consumables_service` (public on npm)
