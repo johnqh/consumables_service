@@ -46,7 +46,7 @@ export class ConsumablesHelper {
   constructor(
     db: DrizzleDb,
     tables: ConsumablesSchemaResult,
-    config: ConsumablesConfig,
+    config: ConsumablesConfig
   ) {
     this.db = db;
     this.tables = tables;
@@ -104,7 +104,7 @@ export class ConsumablesHelper {
    */
   async recordPurchase(
     userId: string,
-    request: ConsumablePurchaseRequest,
+    request: ConsumablePurchaseRequest
   ): Promise<ConsumableBalanceResponse> {
     // Validate inputs
     if (!Number.isInteger(request.credits) || request.credits <= 0) {
@@ -182,7 +182,7 @@ export class ConsumablesHelper {
    */
   async recordUsage(
     userId: string,
-    filename?: string,
+    filename?: string
   ): Promise<ConsumableUseResponse> {
     const { consumableBalances, consumableUsages } = this.tables;
 
@@ -194,7 +194,7 @@ export class ConsumablesHelper {
         updated_at: new Date(),
       })
       .where(
-        sql`${consumableBalances.user_id} = ${userId} AND ${consumableBalances.balance} > 0`,
+        sql`${consumableBalances.user_id} = ${userId} AND ${consumableBalances.balance} > 0`
       )
       .returning({ balance: consumableBalances.balance });
 
@@ -223,7 +223,7 @@ export class ConsumablesHelper {
   async getPurchaseHistory(
     userId: string,
     limit = 50,
-    offset = 0,
+    offset = 0
   ): Promise<ConsumablePurchase[]> {
     const { consumablePurchases } = this.tables;
     return this.db
@@ -245,7 +245,7 @@ export class ConsumablesHelper {
   async getUsageHistory(
     userId: string,
     limit = 50,
-    offset = 0,
+    offset = 0
   ): Promise<ConsumableUsage[]> {
     const { consumableUsages } = this.tables;
     return this.db
@@ -277,14 +277,14 @@ export class ConsumablesHelper {
     source: ConsumableSource,
     productId: string,
     priceCents: number,
-    currency: string,
+    currency: string
   ): Promise<{ alreadyProcessed: boolean; balance: number }> {
     // Check for duplicate
     const existing = await this.db
       .select()
       .from(this.tables.consumablePurchases)
       .where(
-        eq(this.tables.consumablePurchases.transaction_ref_id, transactionId),
+        eq(this.tables.consumablePurchases.transaction_ref_id, transactionId)
       );
 
     if (existing.length > 0) {

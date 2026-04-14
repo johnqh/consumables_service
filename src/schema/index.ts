@@ -3,12 +3,7 @@
  * Creates balance, purchase, and usage tables within a consumer-provided PgSchema.
  */
 
-import {
-  varchar,
-  timestamp,
-  serial,
-  integer,
-} from "drizzle-orm/pg-core";
+import { varchar, timestamp, serial, integer } from "drizzle-orm/pg-core";
 
 /**
  * Creates consumable credit tables within a given Drizzle PgSchema.
@@ -51,4 +46,6 @@ export function createConsumablesSchema(schema: any) {
   return { consumableBalances, consumablePurchases, consumableUsages };
 }
 
-export type ConsumablesSchemaResult = ReturnType<typeof createConsumablesSchema>;
+export type ConsumablesSchemaResult = ReturnType<
+  typeof createConsumablesSchema
+>;

@@ -18,7 +18,7 @@ import type { RevenueCatWebhookEvent } from "../types";
 export function validateWebhookSignature(
   rawBody: string,
   signature: string,
-  secret: string,
+  secret: string
 ): boolean {
   const hmac = createHmac("sha256", secret);
   hmac.update(rawBody);
@@ -47,9 +47,7 @@ const STORE_TO_SOURCE: Record<string, string> = {
  * @param event - The RevenueCat webhook event payload.
  * @returns Extracted purchase data, or null if the event type is not a consumable purchase.
  */
-export function parseConsumablePurchaseEvent(
-  event: RevenueCatWebhookEvent,
-): {
+export function parseConsumablePurchaseEvent(event: RevenueCatWebhookEvent): {
   userId: string;
   transactionId: string;
   productId: string;
