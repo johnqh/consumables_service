@@ -15,6 +15,7 @@ import type {
 import type {
   ConsumablePurchase,
   ConsumableUsage,
+  ConsumableUsageOptions,
   ConsumablesConfig,
 } from "../types";
 
@@ -174,40 +175,68 @@ export class ConsumablesHelper {
   }
 
   /**
-   * Records a credit usage and atomically decrements the balance by 1.
-   * Uses a WHERE balance > 0 guard to prevent negative balances.
+   * Records a credit usage and atomically decrements the balance.
+   *
+   * The second argument accepts either a filename string — the original
+   * signature, kept so published consumers keep working untouched — or an
+   * options object.
+   *
+   * `credits` defaults to 1 and `allowNegative` to false, so a caller passing
+   * neither gets exactly the previous behaviour.
+   *
+   * The default guard (`balance > 0`) asserts *you must have credit to spend*,
+   * not *you must have enough*: a deduction larger than a positive balance
+   * still applies and lands negative. That is right where the deduction is
+   * itself the permission check, taken at the moment of use. Where permission
+   * was granted earlier — a job admitted by a gate and charged when it finishes
+   * — the balance may have moved below zero in between, and refusing then would
+   * not protect it, only fail to record a debt. Those callers pass
+   * `allowNegative`.
+   *
    * @param userId - The user's unique identifier.
-   * @param filename - Optional filename associated with this usage.
-   * @returns The updated balance and whether the deduction was successful.
+   * @param filenameOrOptions - A filename, or `{ credits, reference, allowNegative }`.
+   * @returns The updated balance and whether the deduction was applied.
    */
   async recordUsage(
     userId: string,
-    filename?: string
+    filenameOrOptions?: string | ConsumableUsageOptions
   ): Promise<ConsumableUseResponse> {
+    const options: ConsumableUsageOptions =
+      typeof filenameOrOptions === "string"
+        ? { filename: filenameOrOptions }
+        : (filenameOrOptions ?? {});
+
+    const credits = options.credits ?? 1;
+    if (!Number.isInteger(credits) || credits <= 0) {
+      throw new Error("credits must be a positive integer");
+    }
+
     const { consumableBalances, consumableUsages } = this.tables;
 
-    // Atomically decrement (with guard against going negative)
     const result = await this.db
       .update(consumableBalances)
       .set({
-        balance: sql`${consumableBalances.balance} - 1`,
+        balance: sql`${consumableBalances.balance} - ${credits}`,
         updated_at: new Date(),
       })
       .where(
-        sql`${consumableBalances.user_id} = ${userId} AND ${consumableBalances.balance} > 0`
+        options.allowNegative
+          ? sql`${consumableBalances.user_id} = ${userId}`
+          : sql`${consumableBalances.user_id} = ${userId} AND ${consumableBalances.balance} > 0`
       )
       .returning({ balance: consumableBalances.balance });
 
     if (result.length === 0) {
-      // Either user doesn't exist or balance is 0
+      // Either the user has no balance row, or the guard refused.
       const current = await this.getBalance(userId);
       return { balance: current.balance, success: false };
     }
 
-    // Record usage
     await this.db.insert(consumableUsages).values({
       user_id: userId,
-      filename: filename ?? null,
+      credits,
+      reference: options.reference ?? null,
+      filename: options.filename ?? null,
     });
 
     return { balance: result[0].balance, success: true };

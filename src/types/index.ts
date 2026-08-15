@@ -31,8 +31,28 @@ export interface ConsumablePurchase {
 export interface ConsumableUsage {
   id: number;
   user_id: string;
+  /** How many credits this usage consumed. Defaults to 1 for rows written before variable amounts existed. */
+  credits: number;
+  /** What the credits were spent on, for products where that is not a file. */
+  reference: string | null;
   filename: string | null;
   created_at: Date;
+}
+
+/**
+ * Options for `recordUsage`.
+ *
+ * `filename` is here so the original string signature has somewhere to land;
+ * a product whose usage is not a file should set `reference` instead.
+ */
+export interface ConsumableUsageOptions {
+  /** How many credits to deduct. Defaults to 1. */
+  credits?: number;
+  /** A description of what was produced, e.g. "generate-score — 16 track-measures". */
+  reference?: string;
+  /** Deduct even when the balance is already at or below zero. Defaults to false. */
+  allowNegative?: boolean;
+  filename?: string;
 }
 
 // === Webhook types (service-only) ===

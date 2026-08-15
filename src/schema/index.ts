@@ -39,6 +39,10 @@ export function createConsumablesSchema(schema: any) {
   const consumableUsages = schema.table("consumable_usages", {
     id: serial("id").primaryKey(),
     user_id: varchar("user_id", { length: 128 }).notNull(),
+    // Default 1 so rows written before variable amounts existed read as one
+    // credit, which is what they were.
+    credits: integer("credits").notNull().default(1),
+    reference: varchar("reference", { length: 500 }),
     filename: varchar("filename", { length: 500 }),
     created_at: timestamp("created_at").defaultNow().notNull(),
   });

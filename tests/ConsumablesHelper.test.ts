@@ -293,6 +293,71 @@ describe("ConsumablesHelper", () => {
       expect(db.insert).toHaveBeenCalled();
     });
 
+
+    // ---- variable amounts -------------------------------------------------
+    //
+    // This mock returns queued values rather than simulating a balance, so it
+    // can prove what is *sent* to the database but not what the database then
+    // does. The behaviour of `allowNegative` — a deduction applying against an
+    // already-negative balance — is therefore proven by music_api's integration
+    // test against real Postgres, not here, where it would only ever restate
+    // the fixture.
+
+    it("deducts the number of credits it is given", async () => {
+      db._enqueueReturning([{ balance: 84 }]);
+      db._enqueueValues(undefined);
+
+      const result = await helper.recordUsage("user123", { credits: 16 });
+
+      expect(result).toEqual({ balance: 84, success: true });
+      const usage = db.values.mock.calls.at(-1)?.[0];
+      expect(usage.credits).toBe(16);
+    });
+
+    it("still deducts exactly 1 when no amount is given", async () => {
+      db._enqueueReturning([{ balance: 9 }]);
+      db._enqueueValues(undefined);
+
+      await helper.recordUsage("user123", { reference: "something" });
+
+      expect(db.values.mock.calls.at(-1)?.[0].credits).toBe(1);
+    });
+
+    it("accepts a filename string, which is the published signature", async () => {
+      // svgr_api calls recordUsage(userId, filename) positionally. Changing
+      // that to an options object would break a live consumer on publish.
+      db._enqueueReturning([{ balance: 9 }]);
+      db._enqueueValues(undefined);
+
+      const result = await helper.recordUsage("user123", "logo.svg");
+
+      expect(result).toEqual({ balance: 9, success: true });
+      const usage = db.values.mock.calls.at(-1)?.[0];
+      expect(usage.filename).toBe("logo.svg");
+      expect(usage.credits).toBe(1);
+    });
+
+    it("records a reference for usage that is not a file", async () => {
+      db._enqueueReturning([{ balance: 84 }]);
+      db._enqueueValues(undefined);
+
+      await helper.recordUsage("user123", {
+        credits: 16,
+        reference: "generate-score — 16 track-measures",
+      });
+
+      const usage = db.values.mock.calls.at(-1)?.[0];
+      expect(usage.reference).toBe("generate-score — 16 track-measures");
+      expect(usage.filename).toBeNull();
+    });
+
+    it("refuses a non-positive amount rather than crediting the user", async () => {
+      // A negative `credits` would flip the decrement into a grant.
+      await expect(helper.recordUsage("user123", { credits: 0 })).rejects.toThrow();
+      await expect(helper.recordUsage("user123", { credits: -5 })).rejects.toThrow();
+      await expect(helper.recordUsage("user123", { credits: 1.5 })).rejects.toThrow();
+    });
+
     it("should fail gracefully when balance is 0", async () => {
       // update().set().where().returning() — no rows updated
       db._enqueueReturning([]);
