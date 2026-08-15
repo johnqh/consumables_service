@@ -5,13 +5,13 @@ export type {
   ConsumableUsage,
   RevenueCatWebhookEvent,
   ConsumablesConfig,
-} from "./types";
+} from "./types/index.js";
 
 // Schema
 export {
   createConsumablesSchema,
   type ConsumablesSchemaResult,
-} from "./schema";
+} from "./schema/index.js";
 
 // Helpers
 export {
@@ -19,4 +19,4 @@ export {
   type DrizzleDb,
   validateWebhookSignature,
   parseConsumablePurchaseEvent,
-} from "./helpers";
+} from "./helpers/index.js";

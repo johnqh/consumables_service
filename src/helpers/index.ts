@@ -1,5 +1,5 @@
-export { ConsumablesHelper, type DrizzleDb } from "./ConsumablesHelper";
+export { ConsumablesHelper, type DrizzleDb } from "./ConsumablesHelper.js";
 export {
   validateWebhookSignature,
   parseConsumablePurchaseEvent,
-} from "./WebhookHelper";
+} from "./WebhookHelper.js";
