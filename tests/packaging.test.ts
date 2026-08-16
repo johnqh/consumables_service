@@ -14,7 +14,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const DIST = new URL("../dist", import.meta.url).pathname;
+// process.cwd() rather than import.meta.url: vitest resolves the latter
+// differently per environment, and a guard that silently skips guards nothing.
+const DIST = join(process.cwd(), "dist");
 
 function jsFiles(dir: string): string[] {
   if (!existsSync(dir)) return [];
