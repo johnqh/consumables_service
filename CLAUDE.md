@@ -1,5 +1,10 @@
 # Consumables Service
 
+> **Git policy — never auto-commit or auto-push.** Leave your work in the working tree.
+> Run `git commit`, `git push`, `gh pr create`, or `scripts/push_all.sh` **only when the user
+> explicitly asks in that turn**. Approval for an earlier change does not carry forward, and
+> finishing a task is not permission to commit it.
+
 Shared backend library for consumable credits management with Drizzle ORM.
 
 **npm**: `@sudobility/consumables_service` (public)
@@ -142,3 +147,7 @@ Dependency direction: `svgr_api` --> `consumables_service` (library dep); `consu
 - Run `bun run verify` before publishing -- this runs lint, typecheck, tests, and build in sequence.
 - Bump version in `package.json`, then `npm publish --access public`
 - After publishing, update the dependency version in consuming APIs (e.g., svgr_api) and verify they still build and pass tests
+
+## Git Workflow
+
+- Do not use feature branches for code changes. Always stay on the current branch.
